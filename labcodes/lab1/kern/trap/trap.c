@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <console.h>
 #include <kdebug.h>
-
+#include <string.h>
 #define TICK_NUM 100
 
 static void print_ticks() {
@@ -53,7 +53,6 @@ idt_init(void) {
 		SETGATE(idt[i],0,GD_KTEXT, __vectors[i],DPL_KERNEL);
 	}
 	SETGATE(idt[T_SWITCH_TOK],0,GD_KTEXT,__vectors[T_SWITCH_TOK],DPL_USER);
-	SETGATE(idt[T_SYSCALL],1,GD_UTEXT,__vectors[T_SYSCALL],DPL_USER);   //wiki提示中有说要把systemcall的权限设为user及陷阱门，但是sample里面没有这一条？？
 	lidt(&idt_pd);
 }
 

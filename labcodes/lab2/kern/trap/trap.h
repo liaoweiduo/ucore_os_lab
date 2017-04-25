@@ -40,6 +40,9 @@
 #define IRQ_ERROR               19
 #define IRQ_SPURIOUS            31
 
+/*absolute IRQ numbers below (self-set)*/
+#define IRQ_GETTIMERTICKS		0xff   // get timer's ticks
+
 /* *
  * These are arbitrarily chosen, but with care not to overlap
  * processor defined exceptions or interrupt vectors.
