@@ -105,16 +105,6 @@ lab1_switch_to_kernel(void) {
 	);
 }
 
-static void 
-print_ticks(void) {
-    asm volatile(
-		"int %0 \n"
-		:
-		:"i"(IRQ_GETTIMERTICKS)
-	);
-	
-}
-
 static void
 lab1_switch_test(void) {
     lab1_print_cur_status();
@@ -124,6 +114,5 @@ lab1_switch_test(void) {
     cprintf("+++ switch to kernel mode +++\n");
     lab1_switch_to_kernel();
     lab1_print_cur_status();
-	print_ticks();
 }
 

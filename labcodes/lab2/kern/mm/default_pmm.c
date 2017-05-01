@@ -128,7 +128,6 @@ default_free_pages(struct Page *base, size_t n) {
     for (p = base; p != base + n; p ++) {  //修改n个pages的各参数
 		p->flags = 0;
 		set_page_ref(p, 0);
-		SetPageReserved(p);
 		SetPageProperty(p);
 		p->property = 0;
 		list_add_before(le, &(p->page_link));
