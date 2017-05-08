@@ -368,6 +368,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
      *   PTE_W           0x002                   // page table/directory entry flags bit : Writeable
      *   PTE_U           0x004                   // page table/directory entry flags bit : User can access
      */
+<<<<<<< Updated upstream
 #if 1
     pde_t *pdep = &pgdir[PDX(la)];   			 					// (1) find page directory entry
     if (!(*pdep & PTE_P)) {              		 					// (2) check if entry is not present
@@ -377,6 +378,17 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
         uintptr_t pa = page2pa(page);							    // (5) get linear address of page
         memset(KADDR(pa), 0, PGSIZE);			                    // (6) clear page content using memset
         *pdep = pa | PTE_U | PTE_W | PTE_P;		                    // (7) set page directory entry's permission
+=======
+#if 0
+    pde_t *pdep = NULL;   // (1) find page directory entry
+    if (0) {              // (2) check if entry is not present
+                          // (3) check if creating is needed, then alloc page for page table
+                          // CAUTION: this page is used for page table, not for common data page
+                          // (4) set page reference
+        uintptr_t pa = 0; // (5) get linear address of page
+                          // (6) clear page content using memset
+                          // (7) set page directory entry's permission
+>>>>>>> Stashed changes
     }
     return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];             // (8) return page table entry
 #endif 
