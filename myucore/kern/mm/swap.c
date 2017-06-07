@@ -1,6 +1,7 @@
 #include <swap.h>
 #include <swapfs.h>
 #include <swap_fifo.h>
+#include <swap_clock.h>
 #include <stdio.h>
 #include <string.h>
 #include <memlayout.h>
@@ -94,9 +95,9 @@ swap_out(struct mm_struct *mm, int n, int in_tick)
                     cprintf("i %d, swap_out: call swap_out_victim failed\n",i);
                   break;
           }          
-          //assert(!PageReserved(page));
+          assert(!PageReserved(page));
 
-          //cprintf("SWAP: choose victim page 0x%08x\n", page);
+          cprintf("SWAP: choose victim page 0x%08x\n", page);
           
           v=page->pra_vaddr; 
           pte_t *ptep = get_pte(mm->pgdir, v, 0);
@@ -160,9 +161,7 @@ check_content_set(void)
      assert(pgfault_num==4);
 }
 
-static inline int
-check_content_access(void)
-{
+static inline int check_content_access(struct mm_struct *mm){
     int ret = sm->check_swap();
     return ret;
 }
@@ -253,7 +252,7 @@ check_swap(void)
      }
      cprintf("set up init env for check_swap over!\n");
      // now access the virt pages to test  page relpacement algorithm 
-     ret=check_content_access();
+     ret=check_content_access(mm);
      assert(ret==0);
      
      //restore kernel mem env

@@ -58,100 +58,164 @@ free_area_t free_area;
 
 #define free_list (free_area.free_list)
 #define nr_free (free_area.nr_free)
-
-static void
-default_init(void) {
+/**
+ * default_init:
+ * you can reuse the  demo default_init fun to
+ * init the free_list and set nr_free to 0.
+ * 代码已经实现了 init freelist 然后设置nr_free 为0
+ * free_list : is used to record the free mem blocks.
+ * nr_free   : is the total number for free mem blocks.
+ */
+static void default_init(void) {
     list_init(&free_list);
-	nr_free = 0;
+    nr_free = 0;
 }
 
-static void
-default_init_memmap(struct Page *base, size_t n) {
+/**
+ * default_init_memmap:
+ * 调用顺序: kern_init --> pmm_init-->page_init-->init_memmap--> pmm_manager->init_memmap
+ * This fun is used to init a free block (with parameter: addr_base, page_number).
+ * 这个函数是用来初始化一个free block 参数有base和page_number
+ * 若本页是空的 且不是第一页，flag中的property位设置为0
+ * 若本页是空的 且是第一页，flag中的property位设置为1 说明其有效
+ * 若本页空 且是第一页 property就是总共的空block数
+ * reference 引用的count清0 也就是有没有对应咯
+ **/
+static void default_init_memmap(struct Page *base, size_t n) {
+    //assert用来检查一个判断是否为真
     assert(n > 0);
     struct Page *p = base;
-    for (; p != base + n; p ++) {
-        assert(PageReserved(p));
+    for (; p != base + n; p++) {
         p->flags = 0;
-        SetPageProperty(p);
-		p->property = 0;
-        set_page_ref(p, 0);
-        list_add_before(&free_list, &(p->page_link));
+        //若本页空&&不是第一页,property就是总共的空block数
+        p->property = 0;
+        //reference引用的count清0
+        p->ref = 0;
+        ClearPageReserved(p);
+        // from memlayout
+        // if this bit=1:
+        // the Page is reserved for kernel,
+        // cannot be used in alloc/free_pages;
+        // otherwise, this bit=0
     }
+    //跟新一共有多少个free page
     nr_free += n;
+    //first block
+    SetPageProperty(base);
+    //若本页空&&第一页,property就是总共的空block数
     base->property = n;
+    list_add(&free_list, &(base->page_link));
 }
 
+/**
+ * default_alloc_pages:
+ * search find a first free block (block size >=n)
+ * in free list and reszie the free block,
+ * return the addr of malloced block.
+ **/
 static struct Page *
 default_alloc_pages(size_t n) {
+    list_entry_t *list_iterator, *nxtptr;
+    struct Page *first_fit_page;
     assert(n > 0);
+    //要分配的页数大于剩余的free数
     if (n > nr_free) {
         return NULL;
     }
-    struct Page *page = NULL;
-    list_entry_t *le = &free_list;
-    while ((le = list_next(le)) != &free_list) {
-        struct Page *p = le2page(le, page_link);
-        if (p->property >= n) {
-            page = p;
-            break;
+    list_iterator = &free_list;
+    //循环访问一次free list
+    while ((list_iterator = list_next(list_iterator)) != &free_list) {
+        //从link回去找到page的base addr
+        first_fit_page = le2page(list_iterator, page_link);
+        //若当前的page可用大于需要的size
+        //注意这个地方，只有一个空闲区域里面的first page才会有property的data
+        if (first_fit_page->property >= n) {
+            //将这片空闲区域中的n个block分配出去
+            //检查这n个block能否分配
+            struct Page *alloc = first_fit_page;
+            for (; alloc != first_fit_page + n; alloc++) {
+                //若Reserved位为1 不能alloc和free
+                assert(!PageReserved(alloc));
+            }
+            //若这个空闲区域里面空闲的数量比我需要的数量还要多
+            if (first_fit_page->property > n) {
+                //原来空闲的空间这样子 H是空闲区域里面first page
+                //||H1....................x..................||
+                //现在这个空闲的区域变成了这样子
+                //.......n.......||H2........x-n.............||
+                //设置其property为剩下的x-n个block
+                //向后找n个page后的page
+                struct Page *new_head = first_fit_page + n;
+                new_head->property = first_fit_page->property - n;
+                SetPageProperty(new_head);
+                //因为按照addr的order 则直接添加到first fit page的后面就好了
+                list_add(&(first_fit_page->page_link), &(new_head->page_link));
+            }
+            //从free list 中删除分配走的page的link
+            list_del(&(first_fit_page->page_link));
+            ClearPageProperty(first_fit_page);
+            nr_free -= n;
+            return first_fit_page;
         }
     }
-    if (page != NULL) {
-		int i;
-		list_entry_t *lee;
-		for(i=0;i<n;i++){
-			lee = list_next(le);
-			struct Page *p = le2page(le, page_link);
-			SetPageReserved(p);
-			ClearPageProperty(p);
-			list_del(le);
-			le = lee;
-		}
-        if (page->property > n) {
-            struct Page *p = page + n;
-            p->property = page->property - n;
-		}
-        nr_free -= n;
-    }
-    return page;
+    return NULL;
 }
 
-static void
-default_free_pages(struct Page *base, size_t n) {
+/**
+ * default_free_pages
+ * free掉分配了的页
+ * base：为free的页的first page的基地址
+ * n   ：为free掉多少页
+ */
+static void default_free_pages(struct Page *base, size_t n) {
     assert(n > 0);
-    assert(PageReserved(base));
-	
-    struct Page *p;
-    list_entry_t *le = &free_list;
-	while((le = list_next(le)) != &free_list)
-		if(le2page(le, page_link) > base) break;
-    for (p = base; p != base + n; p ++) {  //修改n个pages的各参数
-		p->flags = 0;
-		set_page_ref(p, 0);
-		SetPageProperty(p);
-		p->property = 0;
-		list_add_before(le, &(p->page_link));
+    struct Page *p = base;
+    //将n这么多空间释放
+    for (; p != base + n; p++) {
+        //检查要free的n个size时候合法
+        //不能被标记Reserved和Property
+        assert(!PageReserved(p) && !PageProperty(p));
+        //初始化flags位
+        p->flags = 0;
+        //清空页面访问counter
+        set_page_ref(p, 0);
     }
+    //更新新的base
     base->property = n;
-	p=le2page(le, page_link);
-	if(base + n == p){    //如果与后面的相邻
-		base->property += p->property;
-		p->property = 0;
-	}
-    le = list_prev(&(base->page_link));
-    p = le2page(le, page_link);
-    if(le!=&free_list && p==base-1){	//如果与前面的相邻
-		while(le!=&free_list){
-			if(p->property){
-				p->property += base->property;
-				base->property = 0;
-				break;
-			}
-			le = list_prev(le);
-			p=le2page(le, page_link);
-		}
-	}
+    SetPageProperty(base);
+
+    //下面开始找能否合并到其他的已有的区域
+    list_entry_t *le = list_next(&free_list);
+    while (le != &free_list) {
+        p = le2page(le, page_link);
+        le = list_next(le);
+        //若base后面接着了p
+        if (base + base->property == p) {
+            base->property += p->property;
+            p->property = 0;
+            ClearPageProperty(p);
+            list_del(&(p->page_link));
+        }
+        //若p后面接着了base
+        else if (p + p->property == base) {
+            p->property += base->property;
+            ClearPageProperty(base);
+            base->property = 0;
+            base = p;
+            list_del(&(p->page_link));
+        }
+    }
+    // 按照地址顺序插入这个新的base节点
     nr_free += n;
+    le = list_next(&free_list);
+    while (le != &free_list) {
+        p = le2page(le, page_link);
+        if (p > base)
+            break;
+        le = list_next(le);
+    }
+    //插入到list中去
+    list_add_before(le, &(base->page_link));
 }
 
 static size_t

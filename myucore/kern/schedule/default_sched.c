@@ -197,12 +197,58 @@ RR_proc_tick(struct run_queue *rq, struct proc_struct *proc) {
     }
 }
 
+
+/*
+ * MLFQ
+ */
+static void
+MLFQ_init(struct run_queue *rq) {
+    RR_init(rq);
+}
+
+static void
+MLFQ_enqueue(struct run_queue *rq, struct proc_struct *proc) {
+    assert(list_empty(&(proc->run_link)));
+    struct run_queue *nrq = rq;
+    if (proc->rq != NULL && proc->time_slice == 0) {
+		if (proc->rq->max_time_slice != UNI_TIME_SLICE * (1 << 3))  //如果proc不在最后一个rq里
+			nrq = (proc->rq) + 1;
+        else
+            nrq = proc->rq;
+    }
+    RR_enqueue(nrq, proc);
+}
+
+static void
+MLFQ_dequeue(struct run_queue *rq, struct proc_struct *proc) {
+    RR_dequeue(rq, proc);
+}
+
+static struct proc_struct *
+MLFQ_pick_next(struct run_queue *rq) {
+	struct run_queue *nrq = rq;
+    list_entry_t *le = list_next(&(nrq->run_list));
+    while (le == &(nrq->run_list)) {
+		if(nrq->max_time_slice == UNI_TIME_SLICE * (1 << 3))
+			return NULL;
+		nrq = nrq + 1;
+		le = list_next(&(nrq->run_list));
+    }
+	return le2proc(le, run_link);
+}
+
+static void
+MLFQ_proc_tick(struct run_queue *rq, struct proc_struct *proc) {
+    RR_proc_tick(rq, proc);
+}
+
+
 struct sched_class default_sched_class = {
-	.name = "stride_scheduler",
-	.init = stride_init,
-	.enqueue = stride_enqueue,
-	.dequeue = stride_dequeue,
-	.pick_next = stride_pick_next,
-	.proc_tick = stride_proc_tick,
+	.name = "MLFQ_scheduler",
+	.init = MLFQ_init,
+	.enqueue = MLFQ_enqueue,
+	.dequeue = MLFQ_dequeue,
+	.pick_next = MLFQ_pick_next,
+	.proc_tick = MLFQ_proc_tick,
 };
 

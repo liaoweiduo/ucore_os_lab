@@ -982,7 +982,35 @@ sfs_lookup(struct inode *node, char *path, struct inode **node_store) {
         return -E_NOTDIR;
     }
     struct inode *subnode;
-    int ret = sfs_lookup_once(sfs, sin, path, &subnode, NULL);
+    struct sfs_inode *cur_node = sin;
+//    cprintf("Show Path:%s\n",path);
+    //开始拆分
+    char tmp[40];
+    int i = 0,j = 0,ret = 0;
+    for(j = 0;;j++){
+        //末尾
+        if(path[j]=='\0'){
+            tmp[i] = '\0';
+            i = 0;
+//          cprintf("Find: %s\n",tmp);
+            ret = sfs_lookup_once(sfs, cur_node, tmp, &subnode, NULL);
+            break;
+        }
+        //遇到/
+        if(path[j]=='/'){
+            tmp[i] = '\0';
+            i = 0;
+//          cprintf("Find: %s\n",tmp);
+            if((ret = sfs_lookup_once(sfs, cur_node, tmp, &subnode, NULL))!=0) break;
+            //cur_node为当前目录inode
+            cur_node = vop_info(subnode, sfs_inode);
+        }
+        //正常
+        else{
+            tmp[i]=path[j];
+            i++;
+        }
+    }
 
     vop_ref_dec(node);
     if (ret != 0) {

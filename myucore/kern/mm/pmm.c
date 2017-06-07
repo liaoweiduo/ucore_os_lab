@@ -6,6 +6,7 @@
 #include <memlayout.h>
 #include <pmm.h>
 #include <default_pmm.h>
+#include <buddy.h>
 #include <sync.h>
 #include <error.h>
 #include <swap.h>

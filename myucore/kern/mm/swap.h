@@ -48,6 +48,8 @@ struct swap_manager
      int (*swap_out_victim) (struct mm_struct *mm, struct Page **ptr_page, int in_tick);
      /* check the page relpacement algorithm */
      int (*check_swap)(void);     
+	 /* for clock swap */
+	 int (*check_clock_swap)(struct mm_struct *mm);
 };
 
 extern volatile int swap_init_ok;

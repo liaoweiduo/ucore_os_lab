@@ -39,7 +39,7 @@ struct mm_struct {
     int mm_count;                  // the number ofprocess which shared the mm
     semaphore_t mm_sem;            // mutex for using dup_mmap fun to duplicat the mm 
     int locked_by;                 // the lock owner process's pid
-
+	list_entry_t *present_ptr;	   // for clock swap algorithm point
 };
 
 struct vma_struct *find_vma(struct mm_struct *mm, uintptr_t addr);

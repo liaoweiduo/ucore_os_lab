@@ -41,18 +41,24 @@ lsstat(struct stat *stat, const char *filename) {
     printf("   %s\n", filename);
 }
 
-int
-lsdir(const char *path) {
+int lsdir(const char *path) {
     struct stat __stat, *stat = &__stat;
     int ret;
-    DIR *dirp = opendir(".");
-    
+    DIR *dirp = opendir(path);
+
     if (dirp == NULL) {
         return -1;
     }
     struct dirent *direntp;
+    char tmppath[40];
+
     while ((direntp = readdir(dirp)) != NULL) {
-        if ((ret = getstat(direntp->name, stat)) != 0) {
+        strcpy(tmppath,path);
+        strcat(tmppath,"/");
+        strcat(tmppath,direntp->name);
+//        printf("File has %s\n",tmppath);
+
+        if ((ret = getstat(tmppath, stat)) != 0) {
             goto failed;
         }
         lsstat(stat, direntp->name);
